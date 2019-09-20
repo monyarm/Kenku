@@ -6,7 +6,10 @@
   "dependencies": {
     "ffmpeg": "^0.0.4",
     "fluent-ffmpeg": "^2.1.2",
-    "random-file": "^1.0.0"
+    "node-wget": "^0.4.3",
+    "random-file": "^1.0.0",
+    "readline-sync": "^1.4.10",
+    "wget": "0.0.1"
   },
   "devDependencies": {},
   "scripts": {
