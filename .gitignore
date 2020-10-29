@@ -64,3 +64,6 @@ typings/
 res/
 result.wav
 src/
+node_modules
+res
+download
