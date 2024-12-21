@@ -67,6 +67,13 @@ src/
 node_modules
 res
 download
-rename/
+rename/**/*.wav
+rename/**/*.mp3
+rename/**/*.flac
+rename/**/*.mp4
+rename/**/*.ogg
+rename/**/*.txt
 tmp/
 result.flac
+*.7z
+*.zip

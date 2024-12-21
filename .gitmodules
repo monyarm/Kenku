@@ -1,0 +1,3 @@
+[submodule "rename/vosk-api"]
+	path = rename/vosk-api
+	url = https://github.com/alphacep/vosk-api
