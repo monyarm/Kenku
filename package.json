@@ -5,10 +5,14 @@
   "main": "kenku.js",
   "dependencies": {
     "ffmpeg": "^0.0.4",
+    "flite2": "git+https://github.com/monyarm/node-flite2.git",
     "fluent-ffmpeg": "^2.1.2",
+    "mespeak": "^2.0.2",
     "node-wget": "^0.4.3",
+    "nodejs": "0.0.0",
     "random-file": "^1.0.0",
     "readline-sync": "^1.4.10",
+    "tmp": "^0.2.1",
     "wget": "0.0.1"
   },
   "devDependencies": {},

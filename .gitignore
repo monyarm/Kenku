@@ -67,3 +67,6 @@ src/
 node_modules
 res
 download
+rename/
+tmp/
+result.flac

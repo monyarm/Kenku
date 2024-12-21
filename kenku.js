@@ -1,59 +1,142 @@
-var fs = require("fs");
-var ffmpeg = require("fluent-ffmpeg")();
-var path = require("path");
+const fs = require("fs");
+const path = require("path");
+const util = require("util");
+const { execSync } = require("child_process");
+
+
+const resdir = __dirname + '/res/'
+const tmpdir = __dirname + '/tmp/'
+
+const dictionary = fs.readdirSync(resdir).map(x => x.split(' ')).sort(function(a, b){
+  return b.length - a.length;
+});
+
+
+function find_csa(arr, subarr, from_index) {
+    var i = from_index >>> 0,
+        sl = subarr.length,
+        l = arr.length + 1 - sl;
+
+    loop: for (; i<l; i++) {
+        for (var j=0; j<sl; j++)
+            if (arr[i+j] !== subarr[j])
+                continue loop;
+        return i;
+    }
+    return -1;
+}
+
+function chunkArrayInGroups(arr, size) {
+  var myArray = [];
+  for(var i = 0; i < arr.length; i += size) {
+    myArray.push(arr.slice(i, i+size));
+  }
+  return myArray;
+}
+
+function mulberry32(a) {
+    return function() {
+      var t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+}
+
+
+function xmur3(str) {
+    for(var i = 0, h = 1779033703 ^ str.length; i < str.length; i++) {
+        h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+        h = h << 13 | h >>> 19;
+    } return function() {
+        h = Math.imul(h ^ (h >>> 16), 2246822507);
+        h = Math.imul(h ^ (h >>> 13), 3266489909);
+        return (h ^= h >>> 16) >>> 0;
+    }
+}
+
+var seed = xmur3("apples" + Math.random());
+var rand = mulberry32(seed());
+
+for (var i = 0; i < 15; i++) rand();
 
 randomFile = function(dir = '.') {
     	const files = fs.readdirSync(dir)
-        const rnd = Math.floor(Math.random() * files.length);
+        const rnd = Math.floor(rand() * files.length);
 	return path.join( dir , files[rnd])
 }
 
 function findWav(name) {
-	dir = __dirname + '/res/' + name;
-	//console.log(path)
-	if (fs.existsSync(dir) && fs.lstatSync(dir).isDirectory() && dir != __dirname + '/res/'){
-		return [true, randomFile(dir)]
-	}
-
-	if (fs.existsSync(dir + 'wav')){
-		return [false, dir + 'wav']
-	}
-
-	return [false, '']
+	dir = resdir + name;
+	return randomFile(dir)
 }
 
-var text = process.argv[2].replace(/[.,\/#!$%\^&*;:{}=\-_`~()\?]/g, '').replace(/\s{2,}/g," ").toLowerCase();
-var splitText = text.split(" ")
-var splitLength = splitText.length;
+function generateWav(word) {
+	if (fs.existsSync(tmpdir + word + '.flac')){
+		return tmpdir + word + '.flac'
+	}
+	console.log("Generating audio for " + word)
+	var p = tmpdir + word;
+	execSync("espeak " + word  + " -w " + "\"" + p + ".wav" + "\"")
+	execSync("ffmpeg -loglevel panic  -i \"" + p + ".wav\" -c:a flac -af aformat=s16:44100 -ac 1 \"" + p  + ".flac\"")
+	fs.unlinkSync(p + ".wav")
+	return p + ".flac";
 
-var audioArray = [];
-restartLoop:
-while (true){
-for (i = 1; i <= splitLength; i++) {
-	testText = splitText.slice(0, splitText.length  - i + 1).join(" ");
-	//console.log(findWav(testText));
-	wav = findWav(testText);
-	if(wav[0]){
-		//console.log(wav);
-		audioArray.push(wav[1]);
-		text = splitText.splice(splitText.length - i + 1, i - 1).join(" ");
-		//console.log(text, splitText, splitText.length, i);
-		splitText = text.split(" ");
-		splitLength = splitText.length;
-		//console.log(text,splitText,splitLength,i);
-		console.log(testText);
-		continue restartLoop;
+}
+
+if (!fs.existsSync(tmpdir)) {
+	fs.mkdirSync(tmpdir)
+}
+
+var text = (" " + process.argv[2] + " " )
+.replace(/[.,\/#!%\^&*;:{}=\-_`~()\?"’”–“‘\'\[\]]+/g, '')
+.replace(/\s{2,}/g," ").toLowerCase()
+.replace(/ will not /g, " wont ")
+.replace(/ i will /g, " ill ")
+.replace(/ do not /g, " dont ")
+.replace(/ ya /g, " yeah ")
+.replace(/ know /g, " no ")
+.replace(/ run away /g, " runaway ")
+.replace(/ shoe string /g, " shoestring ")
+.replace(/ banned /g, " band ")
+.replace(/ it is /g, " its ")
+.replace(/ phew /g, " few ")
+.replace(/ eye /g, " i ")
+.replace(/ okay /g, " ok ")
+.replace(/ damnit /g, " damn it ")
+.trim();
+
+var audioArray = text.split(' ')
+for (i = 0; i < dictionary.length; i++) {
+	const phrase = dictionary[i]
+	var pos = find_csa(audioArray, phrase)
+	if (pos == -1) {continue;}
+	while ( true )
+	{
+		audioArray.splice(pos, phrase.length, findWav(phrase.join(' ').trim()))
+		pos = find_csa(audioArray, phrase)
+		if ( pos == -1) {break;}
 	}
 }
-break;
+audioArray = audioArray.map(x => {
+	return x.includes("/res/") ? x : generateWav(x)
+})
+audioArrayArray = chunkArrayInGroups(audioArray, 128)
+for (i = 0; i < audioArrayArray.length; i++) {
+	execSync("sox \"" + audioArrayArray[i].join("\" \"") + "\" tmp/_result" + i.toString().padStart(2, '0') + ".flac")
 }
+
+execSync("sox tmp/_result*.flac result.flac silence 1 0.1 0.1% -1 0.1 0.1%")
+
+//fs.unlinkSync(tmpdir + "_result.flac")
+fs.readdirSync(tmpdir)
+    .filter(f => /_result.*\.flac/.test(f))
+    .map(f => fs.unlink(tmpdir + f, () => {}))
+
+
 audioArray.forEach(file =>  {
-	ffmpeg.addInput(file)
+        console.log("\x1b[32m",file)
 })
 
-ffmpeg
-	.on('error', function(err) {console.log('An error occurred: ' + err.message);})
-        .on('end', function() {console.log('Merging finished !');})
-	.mergeToFile(__dirname + '/result.wav');
+console.log('Merging finished !')
 
-console.log(audioArray);
